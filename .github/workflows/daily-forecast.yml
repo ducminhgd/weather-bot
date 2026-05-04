@@ -1,0 +1,24 @@
+name: Daily Weather Forecast
+
+on:
+  schedule:
+    - cron: '0 13 * * *'  # 13:00 UTC = 20:00 GMT+7
+  workflow_dispatch:       # allow manual trigger for testing
+
+jobs:
+  forecast:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+          cache: true
+
+      - name: Run weather bot
+        run: go run ./cmd/bot/
+        env:
+          DAYS: 3
+          LOCATIONS: ${{ secrets.LOCATIONS }}
+          NOTIFICATIONS: ${{ secrets.NOTIFICATIONS }}

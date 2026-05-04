@@ -152,7 +152,7 @@ Supported types: `telegram`.
 Output follows this markdown template (printed to stdout and sent to each notifier):
 
 ```
-**Weather prediction**
+**Weather forecast**
 1. **Location:** <location>
 2. **dd/mm/YYYY** (today)
    1. **Temperature:** <lowest> - <highest> °C

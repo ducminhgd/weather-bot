@@ -126,7 +126,7 @@ func FormatMessage(loc domain.Location, days []domain.DailyWeather) string {
 	var b strings.Builder
 	tz := loadTZ(loc.Timezone)
 
-	b.WriteString("**Weather prediction**\n")
+	b.WriteString("**Weather forecast**\n")
 	fmt.Fprintf(&b, "1. **Location:** %s\n", locationLabel(loc))
 	writeDays(&b, tz, days, 2)
 
@@ -137,7 +137,7 @@ func FormatMessage(loc domain.Location, days []domain.DailyWeather) string {
 func FormatCombinedMessage(forecasts []LocationForecast) string {
 	var b strings.Builder
 
-	b.WriteString("**Weather prediction**\n")
+	b.WriteString("**Weather forecast**\n")
 	for _, f := range forecasts {
 		tz := loadTZ(f.Location.Timezone)
 		fmt.Fprintf(&b, "\n**%s**\n", locationLabel(f.Location))
