@@ -49,6 +49,9 @@ days: 3
 message:
   split: false   # true = one message per location, false = all in one message
 
+forecast:
+  rain_threshold: 80   # minimum % probability to count as rain (0–100)
+
 rules:
   - name: rain-alert
     type: rain
@@ -88,6 +91,7 @@ Array and object blocks (`LOCATIONS`, `RULES`, `SOURCES`, `NOTIFICATIONS`) are p
 |---|---|---|
 | `DAYS` | `1` | Number of forecast days |
 | `MESSAGE__SPLIT` | `false` | `true` = one message per location |
+| `FORECAST__RAIN_THRESHOLD` | `80` | Minimum rain probability % to treat an hour as rainy (0–100) |
 | `LOCATIONS` | — | JSON array of location objects (see below) |
 | `RULES` | — | JSON array of rule objects (see below) |
 | `SOURCES` | — | JSON object of source configs (see below) |
@@ -123,7 +127,7 @@ Built-in rule types:
 
 | Type | Params | Description |
 |---|---|---|
-| `rain` | `threshold` (0–100 %, default 30) | Alert when rain is forecast |
+| `rain` | `threshold` (0–100 %, default 80) | Alert when rain is forecast |
 | `temp` | `condition` (`lte`\|`gte`), `value` (°C as string) | Alert on temperature threshold |
 
 When rules are configured, external notifications are sent only when at least one rule matches.
@@ -135,12 +139,13 @@ New rule types can be added by registering a new evaluator — no existing code 
 ```json
 {
   "open-meteo":     {},
-  "openweathermap": { "api_key": "YOUR_KEY" }
+  "openweathermap": { "api_key": "YOUR_KEY" },
+  "weatherapi":     { "api_key": "YOUR_KEY" }
 }
 ```
 
 Sources are tried in order; the first successful response is used.
-Supported: `open-meteo` (no key required), `openweathermap`.
+Supported: `open-meteo` (no key required), `openweathermap`, `weatherapi`.
 
 #### `NOTIFICATIONS` — JSON object
 

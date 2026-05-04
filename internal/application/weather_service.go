@@ -25,12 +25,14 @@ type WeatherService struct {
 	locations     []domain.Location
 	days          int
 	splitMessages bool
+	rainThreshold float64 // 0.0–1.0
 }
 
 // NewWeatherService creates a WeatherService.
 // fetchers are tried in order; the first successful response is used.
 // notifiers are called when a rule matches (or unconditionally when no rules are set).
 // splitMessages true sends one message per location; false combines all into one.
+// rainThresholdPct is the minimum precipitation probability (0–100) to count as rain.
 func NewWeatherService(
 	fetchers []WeatherFetcher,
 	notifiers []Notifier,
@@ -39,7 +41,12 @@ func NewWeatherService(
 	locations []domain.Location,
 	days int,
 	splitMessages bool,
+	rainThresholdPct int,
 ) *WeatherService {
+	threshold := float64(rainThresholdPct) / 100.0
+	if threshold <= 0 {
+		threshold = RainThreshold
+	}
 	return &WeatherService{
 		fetchers:      fetchers,
 		notifiers:     notifiers,
@@ -48,6 +55,7 @@ func NewWeatherService(
 		locations:     locations,
 		days:          days,
 		splitMessages: splitMessages,
+		rainThreshold: threshold,
 	}
 }
 
@@ -69,12 +77,12 @@ func (s *WeatherService) Run(ctx context.Context) error {
 
 	if s.splitMessages {
 		for _, f := range forecasts {
-			msg := FormatMessage(f.Location, f.Days)
+			msg := FormatMessage(f.Location, f.Days, s.rainThreshold)
 			fmt.Println(msg)
 			s.notify(ctx, msg, f.Days)
 		}
 	} else {
-		msg := FormatCombinedMessage(forecasts)
+		msg := FormatCombinedMessage(forecasts, s.rainThreshold)
 		fmt.Println(msg)
 		// notify if any location triggers a rule
 		for _, f := range forecasts {
@@ -122,33 +130,33 @@ func (s *WeatherService) fetchWeather(ctx context.Context, loc domain.Location) 
 // ── message formatting ────────────────────────────────────────────────────────
 
 // FormatMessage builds a weather report for a single location.
-func FormatMessage(loc domain.Location, days []domain.DailyWeather) string {
+func FormatMessage(loc domain.Location, days []domain.DailyWeather, rainThreshold float64) string {
 	var b strings.Builder
 	tz := loadTZ(loc.Timezone)
 
 	b.WriteString("**Weather forecast**\n")
 	fmt.Fprintf(&b, "1. **Location:** %s\n", locationLabel(loc))
-	writeDays(&b, tz, days, 2)
+	writeDays(&b, tz, days, 2, rainThreshold)
 
 	return strings.TrimRight(b.String(), "\n")
 }
 
 // FormatCombinedMessage builds a single report containing all locations.
-func FormatCombinedMessage(forecasts []LocationForecast) string {
+func FormatCombinedMessage(forecasts []LocationForecast, rainThreshold float64) string {
 	var b strings.Builder
 
 	b.WriteString("**Weather forecast**\n")
 	for _, f := range forecasts {
 		tz := loadTZ(f.Location.Timezone)
 		fmt.Fprintf(&b, "\n**%s**\n", locationLabel(f.Location))
-		writeDays(&b, tz, f.Days, 1)
+		writeDays(&b, tz, f.Days, 1, rainThreshold)
 	}
 
 	return strings.TrimRight(b.String(), "\n")
 }
 
 // writeDays appends the numbered day entries to b. startIndex is the opening list number.
-func writeDays(b *strings.Builder, tz *time.Location, days []domain.DailyWeather, startIndex int) {
+func writeDays(b *strings.Builder, tz *time.Location, days []domain.DailyWeather, startIndex int, rainThreshold float64) {
 	now := time.Now().In(tz)
 	todayStr := now.Format("2006-01-02")
 	tomorrowStr := now.AddDate(0, 0, 1).Format("2006-01-02")
@@ -167,11 +175,12 @@ func writeDays(b *strings.Builder, tz *time.Location, days []domain.DailyWeather
 		fmt.Fprintf(b, "%d. **%s**\n", startIndex+i, dayLabel)
 		fmt.Fprintf(b, "   1. **Temperature:** %.1f - %.1f °C\n", day.TempMin, day.TempMax)
 
-		intervals := rainIntervals(day.Hourly, tz)
+		intervals := rainIntervals(day.Hourly, tz, rainThreshold)
+		rainLabel := fmt.Sprintf("   2. **Rain chances(%d%%)**: ", int(rainThreshold*100))
 		if len(intervals) == 0 {
-			b.WriteString("   2. **Rain chances**: No\n")
+			b.WriteString(rainLabel + "No\n")
 		} else {
-			b.WriteString("   2. **Rain chances**: Yes\n")
+			b.WriteString(rainLabel + "Yes\n")
 			for j, iv := range intervals {
 				fmt.Fprintf(b, "      %d. From %s to %s\n",
 					j+1,
@@ -209,15 +218,15 @@ func loadTZ(tz string) *time.Location {
 }
 
 // rainIntervals returns consecutive time windows within hours where precipitation
-// is expected (chance ≥ RainThreshold or measured mm > 0).
+// is expected (chance ≥ threshold or measured mm > 0).
 // Times in the returned intervals are in UTC; the caller converts to display timezone.
-func rainIntervals(hours []domain.HourlyWeather, _ *time.Location) [][2]time.Time {
+func rainIntervals(hours []domain.HourlyWeather, _ *time.Location, threshold float64) [][2]time.Time {
 	var intervals [][2]time.Time
 	inRain := false
 	var start time.Time
 
 	for _, h := range hours {
-		rainy := h.PrecipitationChance >= RainThreshold || h.PrecipitationMM > 0
+		rainy := h.PrecipitationChance >= threshold || h.PrecipitationMM > 0
 		if rainy && !inRain {
 			start = h.Time
 			inRain = true

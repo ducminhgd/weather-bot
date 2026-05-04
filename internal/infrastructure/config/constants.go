@@ -16,6 +16,7 @@ const (
 const (
 	SourceOpenWeatherMap = "openweathermap"
 	SourceOpenMeteo      = "open-meteo"
+	SourceWeatherAPI     = "weatherapi"
 )
 
 // Notification type constants — values for NotificationConfig.Type.

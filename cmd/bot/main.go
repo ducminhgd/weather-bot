@@ -3,14 +3,14 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-
-	"log"
 
 	"github.com/ducminhgd/weather-bot/internal/application"
 	"github.com/ducminhgd/weather-bot/internal/domain"
@@ -18,6 +18,7 @@ import (
 	"github.com/ducminhgd/weather-bot/internal/infrastructure/notification/telegram"
 	"github.com/ducminhgd/weather-bot/internal/infrastructure/weather/openmeteo"
 	"github.com/ducminhgd/weather-bot/internal/infrastructure/weather/openweathermap"
+	"github.com/ducminhgd/weather-bot/internal/infrastructure/weather/weatherapi"
 )
 
 func main() {
@@ -64,10 +65,27 @@ func run(ctx context.Context, cfg *config.Config) error {
 
 	rules := make([]application.Rule, 0, len(cfg.Rules))
 	for _, r := range cfg.Rules {
+		params := r.Params
+		// Inject the global rain threshold into rain rules that don't override it.
+		if r.Type == config.RuleTypeRain {
+			if _, hasOverride := params["threshold"]; !hasOverride {
+				if params == nil {
+					params = make(map[string]string)
+				} else {
+					// copy to avoid mutating the config
+					copied := make(map[string]string, len(params))
+					for k, v := range params {
+						copied[k] = v
+					}
+					params = copied
+				}
+				params["threshold"] = strconv.Itoa(cfg.Forecast.RainThreshold)
+			}
+		}
 		rules = append(rules, application.Rule{
 			Name:   r.Name,
 			Type:   r.Type,
-			Params: r.Params,
+			Params: params,
 		})
 	}
 
@@ -89,6 +107,7 @@ func run(ctx context.Context, cfg *config.Config) error {
 		locations,
 		cfg.Days,
 		cfg.Message.Split,
+		cfg.Forecast.RainThreshold,
 	)
 
 	return svc.Run(ctx)
@@ -102,6 +121,8 @@ func buildFetchers(cfg *config.Config) []application.WeatherFetcher {
 			result = append(result, openweathermap.New(src.APIKey))
 		case config.SourceOpenMeteo:
 			result = append(result, openmeteo.New())
+		case config.SourceWeatherAPI:
+			result = append(result, weatherapi.New(src.APIKey))
 		}
 	}
 	return result

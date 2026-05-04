@@ -23,6 +23,13 @@ type MessageConfig struct {
 	Split bool `mapstructure:"split"`
 }
 
+// ForecastConfig holds settings that affect how forecast data is interpreted.
+type ForecastConfig struct {
+	// RainThreshold is the minimum precipitation probability (0–100 %) required
+	// to consider an hour as rainy. Defaults to 80.
+	RainThreshold int `mapstructure:"rain_threshold"`
+}
+
 // RuleConfig defines a single rule condition. Name is a human-readable label
 // used in alert messages so the recipient knows which rule fired.
 // Type identifies the evaluator; Params carries type-specific settings.
@@ -58,6 +65,7 @@ type Config struct {
 	Sources       map[string]SourceConfig       `mapstructure:"sources"`
 	Notifications map[string]NotificationConfig `mapstructure:"notifications"`
 	Message       MessageConfig                 `mapstructure:"message"`
+	Forecast      ForecastConfig                `mapstructure:"forecast"`
 }
 
 // Load builds a Config from the layered priority stack (lowest to highest):
@@ -69,6 +77,7 @@ type Config struct {
 func Load(v *viper.Viper, cfgFile string) (*Config, error) {
 	// 1. Defaults
 	v.SetDefault("days", 1)
+	v.SetDefault("forecast.rain_threshold", 80)
 
 	// 2. Config file
 	if cfgFile != "" {
@@ -118,7 +127,7 @@ func setJSONEnv(v *viper.Viper, envKey, viperKey string) error {
 	if val == "" {
 		return nil
 	}
-	var data interface{}
+	var data any
 	if err := json.Unmarshal([]byte(val), &data); err != nil {
 		return fmt.Errorf("parsing %s env var: %w", envKey, err)
 	}
