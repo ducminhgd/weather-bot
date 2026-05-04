@@ -20,7 +20,7 @@ Check each item when done
   - [x] Design the configuration that can read configurations in files (JSON, YAML), or from environments, or from runtime arguments. Priorities follow: runtime arguments overrides environment variables, environments variables override the files, the configuration files override the default values configured in code.
 - [ ] Implement
   - [x] Define configurations, variables for the application, and update README.md.
-  - [ ] Weather services infrastructure
-  - [ ] Main service to process the data and print to stdout.
-  - [ ] A notification module for multiple messenger apps.
-  - [ ] Implement Telegram integration.
+  - [x] Weather services infrastructure
+  - [x] Main service to process the data and print to stdout.
+  - [x] A notification module for multiple messenger apps.
+  - [x] Implement Telegram integration.
